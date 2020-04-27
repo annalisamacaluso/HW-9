@@ -1,64 +1,57 @@
-const fs = require("fs");
-const path = require("path");
-const inquirer = require("inquirer");
-const open = require("open");
-const convertFactory = require("electron-html-to");
-const api = require("./api");
 const generateHTML = require("./generateHTML");
+const axios = require("axios");
+const inquirer = require("inquirer");
+const fs = require("fs");
+const pdf = require("html-pdf");
 
-const questions = [
-  {
-    type: "input",
-    name: "github",
-    message: "What is your GitHub username?"
-  },
+inquirer.prompt([
+    {
+        type: "input",
+        message: "What is your GitHub username?",
+        name: "username",
+    },
+    {
+        type: "list",
+        message: "What is your favorite color?",
+        name: "color",
+        choices: ["green", "blue", "pink", "red"]
+    }
+]).then(function(response){
+    console.log(response.color)
+    axios.get(`https://api.github.com/users/${response.username}`)
+    .then(function(res){
+        var data = res.data;
+        data.color = response.color;
+        console.log(data)
 
-  {
-    type: "list",
-    name: "color",
-    message: "What is your favorite color?",
-    choices: ["red", "blue", "green", "pink"]
-  }
-];
+        var html = generateHTML(data)
+        // console.log(html)
+        writeToFile(html)
+    })
+})
 
-function writeToFile(fileName, data) {
-  return fs.writeFileSync(path.join(process.cwd(), fileName), data);
+
+//function doAxios(response){}
+
+// const questions = [
+  
+// ];
+
+function writeToFile(data) {
+    // fs.writeFileSync("newPDF.html", data);
+    // var html = fs.readFileSync('newPDF.html', 'utf8');
+    var options = { format: 'Letter' };
+    
+    pdf.create(data, options).toFile('./profile.pdf', function(err, res) {
+    if (err) return console.log(err);
+    console.log(res); // { filename: '/app/businesscard.pdf' }
+    });
 }
 
-function init() {
-  inquirer.prompt(questions).then(({ github, color }) => {
-    console.log("Searching...");
-
-    api
-      .getUser(github)
-      .then(response =>
-        api.getTotalStars(github).then(stars => {
-          return generateHTML({
-            stars,
-            color,
-            ...response.data
-          });
-        })
-      )
-      .then(html => {
-        const conversion = convertFactory({
-          converterPath: convertFactory.converters.PDF
-        });
-
-        conversion({ html }, function(err, result) {
-          if (err) {
-            return console.error(err);
-          }
-
-          result.stream.pipe(
-            fs.createWriteStream(path.join(__dirname, "resume.pdf"))
-          );
-          conversion.kill();
-        });
-
-        open(path.join(process.cwd(), "resume.pdf"));
-      });
-  });
+function makePDF(){
 }
 
-init();
+// function init() {
+
+// }
+// init();
